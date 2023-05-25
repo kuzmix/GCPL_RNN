@@ -777,26 +777,26 @@ class ModelHandler:
             self.name = files[-1]
         checkpoint = torch.load(self.path+ '/' + self.name, map_location=torch.device('cpu'))
         self.model.load_state_dict(checkpoint['model_state_dict']) 
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict']) 
+#         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict']) 
         self.best_model = copy.deepcopy(self.model) 
         self.best_loss = checkpoint['loss']
         self.comments = checkpoint['comment']
         if 'pp_list' in checkpoint.keys():
             self.pp_list = checkpoint['pp_list']
         else:
-            self.pp_list = []
+            pass
         if 'epochs' in checkpoint.keys():
             self.epochs = checkpoint['epochs']
         else:
             self.epochs = 0
-        if 'train_set' in checkpoint.keys():
-            self.train = checkpoint['train_set']
-        else:
-            self.train = None
-        if 'val_set' in checkpoint.keys():
-            self.val = checkpoint['val_set']
-        else:
-            self.val = None
+#         if 'train_set' in checkpoint.keys():
+#             self.train = checkpoint['train_set']
+#         else:
+#             self.train = None
+#         if 'val_set' in checkpoint.keys():
+#             self.val = checkpoint['val_set']
+#         else:
+#             self.val = None
         
 
 def collate_batch(batch):
