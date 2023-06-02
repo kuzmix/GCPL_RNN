@@ -813,17 +813,26 @@ def collate_batch(batch):
 class MyGRU(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers = 1, bidir=False):
         super().__init__()
+        self.input_size = input_size
+        self.num_layers = num_layers
+        self.hidden_size = hidden_size
+        self.bidir = bidir
         self.rnn = nn.GRU(
             input_size=input_size, hidden_size=hidden_size , num_layers=num_layers,bidirectional =bidir)
         self.fc = nn.Linear(hidden_size*num_layers*(1 + bidir), 1)  
 
     def forward(self, x):
         # print(x.dtype)
-        _, h = self.rnn(x)
+        output, h = self.rnn(x)
+        print(output.shape)
         h = torch.permute(h, (1,0,2))
         y = self.fc(h.flatten(1,-1))
         return y.flatten()
-    
+
+# class MyGRU2(MyGRU):
+#     def forward(self, x, len):
+
+            
 
 # basic random seed
 
