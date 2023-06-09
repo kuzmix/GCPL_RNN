@@ -1,4 +1,3 @@
-
 import os
 import numpy as np
 from tqdm import tqdm
@@ -130,7 +129,7 @@ def make_dataframe_mpt(filepath):
 
 
 def save_list(lst, listname, path):
-    listdir = path + '\\'+ listname
+    listdir = os.path.join(path ,listname)
     with open(listdir, 'w') as f:
         f.writelines('\n'.join(lst))
 
@@ -183,12 +182,6 @@ def repair_df(df, good_columns):
             copy_df.drop(index = i+1, inplace = True)
             copy_df.reset_index(drop=True,inplace=True)
     return copy_df
-
-
-
-
-
-
 
 
 def files_in_dir(filedir, fmt):
@@ -474,7 +467,8 @@ class GCPL_dataset_preparator(Dataset):
             shutil.rmtree(path)
         if not os.path.exists(path):
             os.makedirs(path)
-        with open(path+f'/data.pkl', 'wb') as f:
+        path = os.path.join(path, 'data.pkl')
+        with open(path, 'wb') as f:
             pickle.dump(self.data, f) 
 
 class GCPL_Preparator:
@@ -543,14 +537,16 @@ class GCPL_dataset_resampled(Dataset):
         if not os.path.exists(path):
             os.makedirs(path)
         for i, data in enumerate(self.data):
-            with open(path+f'\\{i}.pkl', 'wb') as f:
+            path_file = os.path.join(path, f'{i}.pkl')
+            with open(path_file, 'wb') as f:
                 pickle.dump(data, f)
 
     def load(self, path):
         files = os.listdir(path)
         self.data = []
         for file in files:
-            with open(path + '\\' + file, 'rb') as f:
+            path_file = os.path.join(path, file)
+            with open(path_file, 'rb') as f:
                 data  = pickle.load(f)
             self.data.append(data)
              
@@ -601,12 +597,14 @@ class GCPL_dataset_resampled2(Dataset):
             shutil.rmtree(path)
         if not os.path.exists(path):
             os.makedirs(path)
-        with open(path+f'/data.pkl', 'wb') as f:
+        path_data = os.path.join(path, 'data.pkl')
+        with open(path_data, 'wb') as f:
             pickle.dump(self.data, f)
 
     def load(self, path):
         self.data = []
-        with open(path + '/data.pkl', 'rb') as f:
+        path_data = os.path.join(path, 'data.pkl')
+        with open(path_data, 'rb') as f:
             self.data  = pickle.load(f)
 
     def __len__(self):
@@ -624,12 +622,14 @@ class GCPL_dataset_resampled3(Dataset):
             shutil.rmtree(path)
         if not os.path.exists(path):
             os.makedirs(path)
-        with open(path+f'/data.pkl', 'wb') as f:
+        path_data = os.path.join(path, 'data.pkl')
+        with open(path_data, 'wb') as f:
             pickle.dump(self.data, f)
 
     def load(self, path):
         self.data = []
-        with open(path + '/data.pkl', 'rb') as f:
+        path_data = os.path.join(path, 'data.pkl')
+        with open(path_data, 'rb') as f:
             self.data  = pickle.load(f)
 
     def __len__(self):
@@ -813,17 +813,26 @@ def collate_batch(batch):
 class MyGRU(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers = 1, bidir=False):
         super().__init__()
+        self.input_size = input_size
+        self.num_layers = num_layers
+        self.hidden_size = hidden_size
+        self.bidir = bidir
         self.rnn = nn.GRU(
             input_size=input_size, hidden_size=hidden_size , num_layers=num_layers,bidirectional =bidir)
         self.fc = nn.Linear(hidden_size*num_layers*(1 + bidir), 1)  
 
     def forward(self, x):
         # print(x.dtype)
-        _, h = self.rnn(x)
+        output, h = self.rnn(x)
+        print(output.shape)
         h = torch.permute(h, (1,0,2))
         y = self.fc(h.flatten(1,-1))
         return y.flatten()
-    
+
+# class MyGRU2(MyGRU):
+#     def forward(self, x, len):
+
+            
 
 # basic random seed
 
