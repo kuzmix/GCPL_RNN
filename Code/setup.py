@@ -17,13 +17,6 @@ from collections import defaultdict
 import random
 import tensorflow as tf
 
-# n_ins = 4
-# n_dbs = 4
-# database_path = r'd:\!Study\Python\test data' #Перенести в директорию проекта
-# in_list = 'initial files.txt'
-# new_list = 'current files.txt'
-# good_columns = ['Ns', 'time/s', "Ewe/V", "<I>/mA", 'cycle number', '(Q-Qo)/mA.h', 'Capacity/mA.h']
-# database_path_short = r'd:\!Study\Python\test data short' #Перенести в директорию проекта
 
 def get_capacity(df):
     """Get dataframe of a cycle, and returns discharge capacity, from two sources (return tuple of 2 values)"""
@@ -31,29 +24,33 @@ def get_capacity(df):
     Q, C = difference[['(Q-Qo)/mA.h', 'Capacity/mA.h']]
     return Q, C
 
+
 def extract_params(df):
-    """extract_params Takes from dataframe Eup, Edown, current and initial guess for capacity. For better understanding see Thevenin_model class
+    """extract_params Takes from dataframe Eup, E_down, current and initial guess for capacity. For better understanding
+     see Thevenin_model class
 
     Args:
         df (DataFrame): one cycle of GCPL
 
     Returns:
-        tuple of floats Eup, Edown, current, Qinit: parameters needed for model creation and initialization of first guesses
+        tuple of floats Eup, E_down, current, Q init: parameters needed for model creation and initialization of first guesses
     """
     Eup = df[df['<I>/mA']<-74].iloc[0]['Ewe/V']
     Edown = df[df['<I>/mA']<-74].iloc[-1]['Ewe/V']
     current = df[df['<I>/mA']<-74]['<I>/mA'].mean()
-    Qinit, _ = get_capacity(df)
-    return Eup, Edown, current, Qinit
+    q_init, _ = get_capacity(df)
+    return Eup, Edown, current, q_init
 
-def prepareData(df):
-    """ Extract from all cycle discharging cycle, and then return three 
-    numpy arrays of E, time and Q."""
-    E = df[df['<I>/mA'] < -74]['Ewe/V'].to_numpy(copy=True)
-    time = df[df['<I>/mA'] < -74]['time/s'].to_numpy(copy=True) 
-    time = time - time.min()
-    Q = df[df['<I>/mA'] < -74]['Capacity/mA.h']
-    return E, time, Q
+
+def prepare_data(df):
+    """ Extract from all cycle discharging cycle, and then return three
+    numpy arrays of voltage, time and capacity."""
+    voltage = df[df['<I>/mA'] < -74]['Ewe/V'].to_numpy(copy=True)
+    time = df[df['<I>/mA'] < -74]['time/s'].to_numpy(copy=True)
+    time_ = time - time.min()
+    capacity = df[df['<I>/mA'] < -74]['Capacity/mA.h']
+    return voltage, time, capacity
+
 
 def gcpl_select_cycle(df,
                       cycles: list,
@@ -71,9 +68,9 @@ def gcpl_view(df,
               x='time/s',
               y='Q charge/discharge/mA.h',
               start_cycle=0):
-    """Get dataframe made from mpt file and draws scatters in multiple plots. 
-    You can select start cycle , step - number of cycles in each plot, what 
-    columns to draw (x an y as column names in dataframe), how many plots there 
+    """Get dataframe made from mpt file and draws scatters in multiple plots.
+    You can select start cycle , step - number of cycles in each plot, what
+    columns to draw (x an y as column names in dataframe), how many plots there
     will be (nplots = ncols*nrows). """
     cycles = np.arange(start_cycle, step*rows*cols+start_cycle)
     cycles_draw = cycles.reshape(rows,cols,-1)
@@ -88,7 +85,7 @@ def gcpl_view(df,
         min_, max_ = cycles_draw[a,b].min(), cycles_draw[a,b].max()
         ax[a,b].title.set_text(f'{min_} - {max_}')
         ax[a,b].set_xticklabels([])
-        
+
 
 def gcpl_abcent_cycles(df):
     """Gets dataframe of gcpl cycling and returns list of numbers of what cycles are missed from experiment."""
@@ -155,8 +152,8 @@ def make_datalist(filedir):
 
 
 def repair_df(df, good_columns):
-    """repair_df This function created to modify existing GCPL experiment from specific problems - point duplication, half-cycles and high/low potentials. 
-    If cycle is not full, 
+    """repair_df This function created to modify existing GCPL experiment from specific problems - point duplication, half-cycles and high/low potentials.
+    If cycle is not full,
     Also deletes all columns except good_columns!
     returns repaired dataframe
 
@@ -185,20 +182,29 @@ def repair_df(df, good_columns):
 
 
 def files_in_dir(filedir, fmt):
-    return ['\"'+ filedir[0] +"\\" +file+'\"' for file in filedir[2] if file.split('.')[-1] == fmt]
+    """
+
+    Args:
+        filedir (str): path to directory you want to check
+        fmt (str):desirable format
+
+    Returns:
+        list of file paths with format fmt
+    """
+    return ['\"' + filedir[0] +"\\" +file+'\"' for file in filedir[2] if file.split('.')[-1] == fmt]
 
 
 class GCPL_exp:
     """This class is created for handling gcpl files, parsing it, saving to selected folder with known file design. Also it can load already saved data."""
     def __init__(self, path, raw=False, database_path = None, n_ins=None, n_dbs=None):
-        """Loads GCPL experiment from folder 'path', or create GCPL experiment 
-        structure if raw==True. For raw creation you give database_path as root 
-        for new database, n_ins as depth of non-sense folders, n_dbs for depth 
-        of database. For example,   
-        d:\\!Science\\Nissan\\Analysis\\Electrochem\\Pouches\\G_series\\G01\\01 GCPL Aging\\030222 GCPL G01-G12 C2 500 cycles continued2_C01_fix.mpt - 
-        consists of 6 needless folders d:\\!Science\\Nissan\\Analysis\\Electrochem\\Pouches and necessary folders G_series\\G01\\01 GCPL Aging\\030222 
+        """Loads GCPL experiment from folder 'path', or create GCPL experiment
+        structure if raw==True. For raw creation you give database_path as root
+        for new database, n_ins as depth of non-sense folders, n_dbs for depth
+        of database. For example,
+        d:\\!Science\\Nissan\\Analysis\\Electrochem\\Pouches\\G_series\\G01\\01 GCPL Aging\\030222 GCPL G01-G12 C2 500 cycles continued2_C01_fix.mpt -
+        consists of 6 needless folders d:\\!Science\\Nissan\\Analysis\\Electrochem\\Pouches and necessary folders G_series\\G01\\01 GCPL Aging\\030222
         GCPL G01-G12 C2 500 cycles continued2_C01_fix.mpt. If folders less than n_dbs, folders named Unknown are nested at position[-2].Gool luck!"""
-        
+
         self.filenames = ['header.txt', 'info.pkl', 'data.csv']
         self.file_keys = ['header', 'info', 'data']
         if raw == True:
@@ -207,13 +213,13 @@ class GCPL_exp:
         else:
             self.load(path)
             self.path = path
-        
+
         self.dataslice = self.data
         self.abcent_cycles()
         self.info['current dir'] = self.path
         self.n_cycles()
         self.length()
-        
+
     def make_dataframe_mpt(self, path):
         """Take file (as filepath of GCPL experiment in mpt format) and return dict with dataframe
         with experimental data ("data"), header 'header' and filepath 'path'. Also it creates dict named 'info'"""
@@ -228,14 +234,14 @@ class GCPL_exp:
         if 'cycle number' in self.data.columns:
             self.data['cycle number']=self.data['cycle number'].astype(int)
         self.info = {'initial path': self.in_path}
-        
-    
+
+
     def create_database_entry(self, database_path, n_ins, n_dbs):
         """This function creates an entry of database at specific
         location database_path, with n_dbs depth and n_ins ignored
         root folders. in_path - filepath of initial file mpt. """
         nesting = self.in_path.split('\\')[n_ins:]
-        
+
         while len(nesting) < n_dbs:
             nesting.insert(-1, 'Unknown')
         if len(nesting) > n_dbs:
@@ -243,8 +249,8 @@ class GCPL_exp:
         self.info['nesting'] = nesting
         self.path = '\\'.join([database_path]+ nesting)
         self.save(path= self.path ,overwrite=True)
-        
-    
+
+
     def save(self,path, overwrite=False):
         """Saves current GCPL class data, for 3 files with each new method
         - text file for header, pickle dump for info, and csv for data."""
@@ -260,7 +266,7 @@ class GCPL_exp:
             with open(self.files['info'], 'wb') as f:
                 pickle.dump(self.info, f)
             self.data.to_csv(self.files['data'], sep='\t',index=False)
-            
+
         else:
             if os.path.exists(self.files['header']):
                 print('Header already exist, not modified')
@@ -276,7 +282,7 @@ class GCPL_exp:
                 print('Data already exist, not modified')
             else:
                 self.data.to_csv(self.files['data'], sep='\t',index=False)
-    
+
     def load(self, path):
         """Loads data, info and header from path directory.
         Rewrites existing data in class."""
@@ -291,7 +297,7 @@ class GCPL_exp:
         "Creates full paths from dirpath and filename"
         return path + '\\' + filename
 
-    def select_cycles(self, *cycles, by_number=False, columns=None): 
+    def select_cycles(self, *cycles, by_number=False, columns=None):
         """Return data by selected cycles. If you select by_number=True, cycles are adressed directly. If no (by default) it returns cycles between 0 and len(gcpl) ignoring abcent cycles. Also you can select specific columns
         names that will be in slice.
         Also saves this slice to self.dataslice.
@@ -300,16 +306,16 @@ class GCPL_exp:
             cycles = cycles
         else:
             cycles = [self.info['cycles'][i] for i in [*cycles]]
-        
+
         if columns:
             df_selected = self.data.loc[self.data['cycle number'].isin(cycles), columns]
         else:
             df_selected = self.data.loc[self.data['cycle number'].isin(cycles), :]
         self.dataslice = df_selected
         return df_selected
-    
+
     def abcent_cycles(self):
-        """Creates in 'info' list of cycles that are missed from 
+        """Creates in 'info' list of cycles that are missed from
         experiment. Also creates min and max cycle, and total number of cycles"""
         self.info['max cycle'] = self.data['cycle number'].max()
         self.info['min cycle'] = self.data['cycle number'].min()
@@ -319,7 +325,7 @@ class GCPL_exp:
             all_cycles = np.arange(self.info['min cycle'], self.info['max cycle'])
             self.info['abcent cycles'] = np.setdiff1d(all_cycles, self.data['cycle number'])
         # print(f"cycles from {self.info['min cycle']} to {self.info['max cycle']}")
-        
+
     def view(self,
           step=50,
           rows=4,
@@ -327,9 +333,9 @@ class GCPL_exp:
           x='time/s',
           y='Q charge/discharge/mA.h',
           start_cycle=0):
-        """Draws scatters in multiple plots. 
-        You can select start cycle , step - number of cycles in each plot, what 
-        columns to draw (x an y as column names in dataframe), how many plots there 
+        """Draws scatters in multiple plots.
+        You can select start cycle , step - number of cycles in each plot, what
+        columns to draw (x an y as column names in dataframe), how many plots there
         will be (nplots = ncols*nrows). """
         cycles = np.arange(start_cycle, step*rows*cols+start_cycle)
         cycles_draw = cycles.reshape(rows,cols,-1)
@@ -347,23 +353,23 @@ class GCPL_exp:
             min_, max_ = cycles_draw[a, b].min(), cycles_draw[a, b].max()
             ax[a, b].title.set_text(f'{min_} - {max_}')
             ax[a, b].set_xticklabels([])
-    
+
     def n_cycles(self):
-        """Saves in self.info['num cycles'] number of available cycles 
+        """Saves in self.info['num cycles'] number of available cycles
         and list of these cycles."""
         self.info['num cycles'] = self.data['cycle number'].nunique()
         self.info['cycles'] = self.data['cycle number'].unique()
-        
+
     def length(self):
         """Add to self.info 'len' number of dots for dataframe"""
         self.info['len'] = self.data.shape[0]
-    
+
     def __len__(self):
         return self.info['num cycles']
-    
+
     def __getitem__(self, idx):
         return self.select_cycles(idx)
-    
+
     def calculate_capacity(self, cycle):
         """calculate_capacity function returns capacity on charge and discharge at given cycle in experiment
 
@@ -377,8 +383,8 @@ class GCPL_exp:
         Qcharge = df[df['Ns']==1]['Capacity/mA.h'].max()
         Qdischarge = df[df['Ns']==2]['Capacity/mA.h'].max()
         return Qcharge, Qdischarge
-        
-        
+
+
 class GCPL_dataset(Dataset):
     """Dataset created for access to all data from cycling. This class is
     necessary for adressing every cycle through all experiments.
@@ -393,7 +399,7 @@ class GCPL_dataset(Dataset):
                                     'Experiment':[],
                                     'Filename':[],
                                     'Qc':[],
-                                    'Qd':[], 
+                                    'Qd':[],
                                     'Qc_next': [],
                                     'Qd_next':[]
                                     })
@@ -411,7 +417,7 @@ class GCPL_dataset(Dataset):
                 else:
                     Qc_next, Qd_next = np.NaN, np.NaN
 
-                    
+
                 self.info.loc[len(self.info)] = [pouch,experiment, filename,  Qc, Qd,Qc_next, Qd_next] # type: ignore
         pouches = self.info['Pouch'].unique()
         self.pouches_capacity = {i:self.info[self.info['Pouch']==i]['Qd'].max() for i in pouches}
@@ -451,7 +457,7 @@ class GCPL_dataset_preparator(Dataset):
             mean.append(len(i['E']))
         mean = np.array(mean)
         return np.median(mean), np.std(mean)
-    
+
 
     def del_outliers(self, n):
         """n = max number of dots."""
@@ -469,7 +475,7 @@ class GCPL_dataset_preparator(Dataset):
             os.makedirs(path)
         path = os.path.join(path, 'data.pkl')
         with open(path, 'wb') as f:
-            pickle.dump(self.data, f) 
+            pickle.dump(self.data, f)
 
 class GCPL_Preparator:
     """ This preparator modify all cycle values, standartize I to C-values, E to 0-1 for 2.75-4.2 range, capacity to C-values, Q 0-1 range, SoH to -1,1 range
@@ -493,7 +499,7 @@ class GCPL_Preparator:
         curr['SoH_next'] = soh_n/50-1
         curr['Cycle'] = int(df['cycle number'].unique())
         Q_start = df['(Q-Qo)/mA.h'].iloc[0]
-        
+
         time = pd.DatetimeIndex(df['time/s'].apply(dt.datetime.fromtimestamp))
         df.set_index(time, inplace=True)
         df = df.resample(self.delta).mean()
@@ -504,9 +510,19 @@ class GCPL_Preparator:
         curr['datetime'] = df.index.to_numpy(copy=True)
         return (True, curr)
 
+
 class GCPL_dataset_resampled(Dataset):
     def __init__(self, GCPL_dataset, minLength = 0, maxLength= np.inf, sampling = 60, load=False):
-        """sampling - number of seconds."""
+        """
+        sampling - number of seconds.
+        Args:
+            GCPL_dataset ():
+            minLength ():
+            maxLength ():
+            sampling ():
+            load ():
+        """
+
         if load==False:
             self.data = []
             self.delta = dt.timedelta(seconds=sampling)
@@ -530,7 +546,6 @@ class GCPL_dataset_resampled(Dataset):
         else:
             self.load(GCPL_dataset)
 
-
     def save(self, path, overwrite=False):
         if overwrite and os.path.exists(path):
             shutil.rmtree(path)
@@ -541,21 +556,21 @@ class GCPL_dataset_resampled(Dataset):
             with open(path_file, 'wb') as f:
                 pickle.dump(data, f)
 
-    def load(self, path):
+    def load(self, path: str) -> None:
         files = os.listdir(path)
         self.data = []
         for file in files:
             path_file = os.path.join(path, file)
             with open(path_file, 'rb') as f:
-                data  = pickle.load(f)
+                data = pickle.load(f)
             self.data.append(data)
-             
+
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
-        return self.data[index]         
+        return self.data[index]
 
 
 class GCPL_dataset_resampled2(Dataset):
@@ -611,13 +626,23 @@ class GCPL_dataset_resampled2(Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        return self.data[index]   
+        return self.data[index]
 
 class GCPL_dataset_resampled3(Dataset):
-    def __init__(self, loadpath):
-        self.load(loadpath)
+    def __init__(self, load_path: str):
 
-    def save(self, path, overwrite=False):
+        self.load(load_path)
+
+    def save(self, path:str, overwrite=False):
+        """
+
+        Args:
+            path (str):
+            overwrite (bool):
+
+        Returns:
+
+        """
         if overwrite and os.path.exists(path):
             shutil.rmtree(path)
         if not os.path.exists(path):
@@ -626,11 +651,11 @@ class GCPL_dataset_resampled3(Dataset):
         with open(path_data, 'wb') as f:
             pickle.dump(self.data, f)
 
-    def load(self, path):
+    def load(self, path: str):
         self.data = []
         path_data = os.path.join(path, 'data.pkl')
         with open(path_data, 'rb') as f:
-            self.data  = pickle.load(f)
+            self.data = pickle.load(f)
 
     def __len__(self):
         return len(self.data)
@@ -642,16 +667,17 @@ class GCPL_dataset_resampled3(Dataset):
         self.data[index] = value
 
     def __delitem__(self, index):
-        del self.data[index]    
+        del self.data[index]
 
     def append(self, item):
-        self.data.append(item)     
+        self.data.append(item)
 
 class ProgressPlotter:
   def __init__(self) -> None:
     self._history_dict = defaultdict(list)
 
   def add_scalar(self, tag: str, value)-> None:
+    assert isinstance(value, float)
     self._history_dict[tag].append(value)
 
   def display_keys(self,ax,tags):
@@ -667,10 +693,8 @@ class ProgressPlotter:
       else:
         ax.set_ylabel(key)
     ax.set_xlabel('step')
-    # ax.set_xticks(np.arange(history_len))
-    # ax.set_xticklabels(np.arange(history_len))
-  
-  def display(self, groups = None): 
+
+  def display(self, groups = None):
     # groups list ofkeys like [['loss_train','loss_val'],['accuracy']]
     clear_output()
     n_groups = len(groups)
@@ -678,14 +702,14 @@ class ProgressPlotter:
     if n_groups == 1:
       ax = [ax]
     for i, keys in enumerate(groups):
-      self.display_keys(ax[i],keys) 
+      self.display_keys(ax[i],keys)
     fig.tight_layout()
     plt.show()
 
   @property
   def history_dict(self):
     return dict(self._history_dict)
-  
+
 
 class ModelHandler:
     def __init__(self, model, loss=1e6, comments = 'No comments', path = './models/v2', kfold= False ):
@@ -708,7 +732,6 @@ class ModelHandler:
 
     def save_best_model(self):
         self.best_model = copy.deepcopy(self.model)
-        # self.best_optimizer = copy.deepcopy(self.optimizer)
 
     def check_loss(self, loss, check_every = 1):
         """check_loss Check if loss better than current loss
@@ -720,15 +743,15 @@ class ModelHandler:
         if self.best_loss > loss:
             self.save_best_model()
             self.best_loss = loss
-    
+
     def add_pp(self, pp):
         """add_pp Adds Progress plotter to inner logic
 
         Args:
-            pp (ProgressPlotter): Result of 
+            pp (ProgressPlotter): Result of
         """
         self.pp_list.append(pp)
-    
+
     def display(self):
         """display works only for 'loss_train' and 'loss_val'.
         """
@@ -739,7 +762,7 @@ class ModelHandler:
             pp._history_dict['loss_train'] += p.history_dict['loss_train']
             pp._history_dict['loss_val'] += p.history_dict['loss_val']
         pp.display([['loss_train','loss_val']])
-    
+
     def save(self, path=None, comment = None, kfold_number = None ):
         if path:
             self.path=path
@@ -748,7 +771,7 @@ class ModelHandler:
         checkpoint = {'model_state_dict': self.best_model.state_dict(),
             # 'optimizer_state_dict': self.best_optimizer.state_dict(),
             'loss': self.best_loss,
-            'comment': self.comments, 
+            'comment': self.comments,
             'pp_list': self.pp_list,
             'epochs': self.epochs,
             # 'train_set': self.train,
@@ -764,7 +787,7 @@ class ModelHandler:
             torch.save(checkpoint, self.path+f'/{kfold_number}'+ '/checkpoint_'+str(num_checkpoints)+'.pt')
         else:
             torch.save(checkpoint, self.path+ '/checkpoint_'+str(num_checkpoints)+'.pt')
-    
+
     def load(self, path):
         if path.split('.')[-1] == 'pt':
             self.path = '/'.join(path.split('/')[:-1])
@@ -776,9 +799,8 @@ class ModelHandler:
             files.sort(key=x)
             self.name = files[-1]
         checkpoint = torch.load(self.path+ '/' + self.name, map_location=torch.device('cpu'))
-        self.model.load_state_dict(checkpoint['model_state_dict']) 
-#         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict']) 
-        self.best_model = copy.deepcopy(self.model) 
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.best_model = copy.deepcopy(self.model)
         self.best_loss = checkpoint['loss']
         self.comments = checkpoint['comment']
         if 'pp_list' in checkpoint.keys():
@@ -789,17 +811,17 @@ class ModelHandler:
             self.epochs = checkpoint['epochs']
         else:
             self.epochs = 0
-#         if 'train_set' in checkpoint.keys():
-#             self.train = checkpoint['train_set']
-#         else:
-#             self.train = None
-#         if 'val_set' in checkpoint.keys():
-#             self.val = checkpoint['val_set']
-#         else:
-#             self.val = None
-        
+
 
 def collate_batch(batch):
+    """
+
+    Args:
+        batch ():
+
+    Returns:
+
+    """
     sample_list = []
     label_list = []
     for i in batch:
@@ -808,7 +830,7 @@ def collate_batch(batch):
         label_list.append(i['SoH'])
     sequence_pad = nn.utils.rnn.pad_sequence(sample_list)
     labels = torch.tensor(label_list, dtype=torch.float32)
-    return sequence_pad, labels    
+    return sequence_pad, labels
 
 class MyGRU(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers = 1, bidir=False):
@@ -819,7 +841,7 @@ class MyGRU(nn.Module):
         self.bidir = bidir
         self.rnn = nn.GRU(
             input_size=input_size, hidden_size=hidden_size , num_layers=num_layers,bidirectional =bidir)
-        self.fc = nn.Linear(hidden_size*num_layers*(1 + bidir), 1)  
+        self.fc = nn.Linear(hidden_size*num_layers*(1 + bidir), 1)
 
     def forward(self, x):
         # print(x.dtype)
@@ -832,7 +854,7 @@ class MyGRU(nn.Module):
 # class MyGRU2(MyGRU):
 #     def forward(self, x, len):
 
-            
+
 
 # basic random seed
 
@@ -844,12 +866,12 @@ def seedBasic(seed=DEFAULT_RANDOM_SEED):
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
     np.random.seed(seed)
-    
-# tensorflow random seed 
+
+# tensorflow random seed
 
 def seedTF(seed=DEFAULT_RANDOM_SEED):
     tf.random.set_seed(seed)
-    
+
 # torch random seed
 
 def seedTorch(seed=DEFAULT_RANDOM_SEED):
@@ -857,8 +879,8 @@ def seedTorch(seed=DEFAULT_RANDOM_SEED):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-      
-# basic + tensorflow + torch 
+
+# basic + tensorflow + torch
 def seedEverything(seed=DEFAULT_RANDOM_SEED):
     seedBasic(seed)
     seedTF(seed)
@@ -896,10 +918,7 @@ def statistics(dataset):
 def balancing(dataset, num_of_splits=5):
     #Creating splits for dataset balancing
     soh, info = statistics(dataset)
-    counts, borders, _ = plt.hist(info.SoH, num_of_splits)
-    probs = []
-    for i, cycle in enumerate(dataset):
-        proba = prob(cycle['SoH']*50+50, counts, borders)
-        probs.append(proba)
-    probs = np.array(probs)
-    return probs
+    info["SoH bin"], bins = pd.cut(info['SoH'], num_of_splits , retbins=True)
+    probabilities = (1 / info.groupby("SoH bin").count()["Pouch"]).to_list()
+    info["probability"] = pd.cut(info["SoH"], num_of_splits, labels=probabilities)
+    return info["probability"].to_numpy()
