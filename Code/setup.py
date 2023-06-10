@@ -774,7 +774,7 @@ class ModelHandler:
             'comment': self.comments,
             'pp_list': self.pp_list,
             'epochs': self.epochs,
-            # 'train_set': self.train,
+            # 'rain_set': self.train,
             # 'val_set': self.val
             }
         if not os.path.exists(self.path):
@@ -844,9 +844,7 @@ class MyGRU(nn.Module):
         self.fc = nn.Linear(hidden_size*num_layers*(1 + bidir), 1)
 
     def forward(self, x):
-        # print(x.dtype)
         output, h = self.rnn(x)
-        print(output.shape)
         h = torch.permute(h, (1,0,2))
         y = self.fc(h.flatten(1,-1))
         return y.flatten()
@@ -915,10 +913,18 @@ def statistics(dataset):
     soh.sort_index(inplace=True)
     return soh, info
 
-def balancing(dataset, num_of_splits=5):
-    #Creating splits for dataset balancing
+def balancing(dataset, num_of_splits=5, key_value = "SoH"):
+    """
+
+    Args:
+        dataset (Dataset): should contain Pouch values and key values. Also each dataset element is dict
+        num_of_splits (int) = 5: Number of  desired equal splits
+
+    Returns:
+        np.array of probabilities, len equal to dataset len.
+    """
     soh, info = statistics(dataset)
-    info["SoH bin"], bins = pd.cut(info['SoH'], num_of_splits , retbins=True)
-    probabilities = (1 / info.groupby("SoH bin").count()["Pouch"]).to_list()
-    info["probability"] = pd.cut(info["SoH"], num_of_splits, labels=probabilities)
+    info["bin"], bins = pd.cut(info[key_value], num_of_splits , retbins=True)
+    probabilities = (1 / info.groupby("bin").count()["Pouch"]).to_list()
+    info["probability"] = pd.cut(info[key_value], num_of_splits, labels=probabilities)
     return info["probability"].to_numpy()
